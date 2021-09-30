@@ -145,20 +145,13 @@
 
 - (BOOL) checkRequirements
 {
-    NSString* pluginName = @"CDVWKWebViewEngine";
-
     BOOL hasWkWebView = NSClassFromString(@"WKWebView") != nil;
-    BOOL wkEnginePlugin = [[self.commandDelegate.settings cordovaSettingForKey:@"CordovaWebViewEngine"] isEqualToString:pluginName];
 
     if (!hasWkWebView) {
         NSLog(@"[ERROR] %@: WKWebView class not found in the current runtime version.", [self class]);
     }
 
-    if (!wkEnginePlugin) {
-        NSLog(@"[ERROR] %@: CordovaWebViewEngine preference must be %@", [self class], pluginName);
-    }
-
-    return hasWkWebView && wkEnginePlugin;
+    return hasWkWebView;
 }
 
 - (NSString*) createErrorUrl:(NSString*)error authToken:(NSString*)authToken
