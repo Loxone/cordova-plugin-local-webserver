@@ -48,8 +48,8 @@
 
     // check the content tag src
     CDVViewController* vc = (CDVViewController*)self.viewController;
-    NSString* localUrl = @"http://localhost:0/";
-    NSURL* startPageUrl = [NSURL URLWithString:[localUrl stringByAppendingString: vc.startPage]];
+    NSString* localUrl = [self.commandDelegate.settings cordovaSettingForKey:@"AlternateContentSrc"];
+    NSURL* startPageUrl = [[NSURL URLWithString:localUrl] URLByAppendingPathComponent:vc.startPage];
     if (startPageUrl != nil) {
         if ([[startPageUrl scheme] isEqualToString:@"http"] && [[startPageUrl host] isEqualToString:@"localhost"]) {
             port = [[startPageUrl port] unsignedIntegerValue];
