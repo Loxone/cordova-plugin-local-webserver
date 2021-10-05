@@ -1,6 +1,6 @@
 {
   "name": "cordova-plugin-local-webserver",
-  "version": "2.4.1",
+  "version": "2.4.2",
   "description": "Cordova Local Web Server Plugin",
   "cordova": {
     "id": "cordova-plugin-local-webserver",
