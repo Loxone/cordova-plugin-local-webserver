@@ -26,6 +26,9 @@
 #import <objc/message.h>
 #import <netinet/in.h>
 
+#define SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(v)  ([[[UIDevice currentDevice] systemVersion] compare:v options:NSNumericSearch] != NSOrderedAscending)
+#define SYSTEM_VERSION_LESS_THAN(v)                 ([[[UIDevice currentDevice] systemVersion] compare:v options:NSNumericSearch] == NSOrderedAscending)
+
 
 #define LOCAL_FILESYSTEM_PATH   @"local-filesystem"
 #define ASSETS_LIBRARY_PATH     @"assets-library"
@@ -45,78 +48,83 @@
     NSString* indexPage = @"index.html";
     NSString* appBasePath = @"www";
     NSUInteger port = 80;
-
-    // check the content tag src
-    CDVViewController* vc = (CDVViewController*)self.viewController;
-    NSString* localUrl = [self.commandDelegate.settings cordovaSettingForKey:@"AlternateContentSrc"];
-    NSURL* startPageUrl = [[NSURL URLWithString:localUrl] URLByAppendingPathComponent:vc.startPage];
-    if (startPageUrl != nil) {
-        if ([[startPageUrl scheme] isEqualToString:@"http"] && [[startPageUrl host] isEqualToString:@"localhost"]) {
-            port = [[startPageUrl port] unsignedIntegerValue];
-            useLocalWebServer = YES;
-        }
-    }
-
-    requirementsOK = [self checkRequirements];
-    if (!requirementsOK) {
-        useLocalWebServer = NO;
-        NSString* alternateContentSrc = [self.commandDelegate.settings cordovaSettingForKey:@"AlternateContentSrc"];
-        vc.startPage = alternateContentSrc? alternateContentSrc : indexPage;
-    }
-
-    // check setting
-#if TARGET_IPHONE_SIMULATOR
-    if (useLocalWebServer) {
-        NSNumber* startOnSimulatorSetting = [[self.commandDelegate settings] objectForKey:[@"CordovaLocalWebServerStartOnSimulator" lowercaseString]];
-        if (startOnSimulatorSetting) {
-            useLocalWebServer = [startOnSimulatorSetting boolValue];
-        }
-    }
-#endif
     
-    if (port == 0) {
-        // CB-9096 - actually test for an available port, and set it explicitly
-        port = [self _availablePort];
-    }
+    if (SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(@"15.0") && SYSTEM_VERSION_LESS_THAN(@"15.1")) {
+        NSLog(@"[INFO] %@: Webserver workaround required!", [self class]);
+        // check the content tag src
+        CDVViewController* vc = (CDVViewController*)self.viewController;
+        NSString* localUrl = [self.commandDelegate.settings cordovaSettingForKey:@"AlternateContentSrc"];
+        NSURL* startPageUrl = [[NSURL URLWithString:localUrl] URLByAppendingPathComponent:vc.startPage];
+        if (startPageUrl != nil) {
+            if ([[startPageUrl scheme] isEqualToString:@"http"] && [[startPageUrl host] isEqualToString:@"localhost"]) {
+                port = [[startPageUrl port] unsignedIntegerValue];
+                useLocalWebServer = YES;
+            }
+        }
 
-    NSString* authToken = [NSString stringWithFormat:@"cdvToken=%@", [[NSProcessInfo processInfo] globallyUniqueString]];
+        requirementsOK = [self checkRequirements];
+        if (!requirementsOK) {
+            useLocalWebServer = NO;
+            NSString* alternateContentSrc = [self.commandDelegate.settings cordovaSettingForKey:@"AlternateContentSrc"];
+            vc.startPage = alternateContentSrc? alternateContentSrc : indexPage;
+        }
 
-    self.server = [[GCDWebServer alloc] init];
-    [GCDWebServer setLogLevel:kGCDWebServerLoggingLevel_Error];
-
-    if (useLocalWebServer) {
-        [self addAppFileSystemHandler:authToken basePath:[NSString stringWithFormat:@"/%@/", appBasePath] indexPage:indexPage];
-
-        // add after server is started to get the true port
-        [self addFileSystemHandlers:authToken];
-        [self addErrorSystemHandler:authToken];
-
-        //WaveLens changes
-        NSArray* paths = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
-                                                              
-        [self.server addGETHandlerForPath:@"/assets-library/appIndex.html" filePath:[paths[0] stringByAppendingString: @"/appIndex.html" ] isAttachment:false cacheAge:0 allowRangeRequests:true];
+        // check setting
+    #if TARGET_IPHONE_SIMULATOR
+        if (useLocalWebServer) {
+            NSNumber* startOnSimulatorSetting = [[self.commandDelegate settings] objectForKey:[@"CordovaLocalWebServerStartOnSimulator" lowercaseString]];
+            if (startOnSimulatorSetting) {
+                useLocalWebServer = [startOnSimulatorSetting boolValue];
+            }
+        }
+    #endif
         
-        
-        // handlers must be added before server starts
-        [self.server startWithPort:port bonjourName:nil];
+        if (port == 0) {
+            // CB-9096 - actually test for an available port, and set it explicitly
+            port = [self _availablePort];
+        }
 
-        // Update the startPage (supported in cordova-ios 3.7.0, see https://issues.apache.org/jira/browse/CB-7857)
-		vc.startPage = [NSString stringWithFormat:@"http://localhost:%lu/%@/%@?%@", (unsigned long)self.server.port, appBasePath, indexPage, authToken];
+        NSString* authToken = [NSString stringWithFormat:@"cdvToken=%@", [[NSProcessInfo processInfo] globallyUniqueString]];
 
-    } else {
-        if (requirementsOK) {
-            NSString* error = [NSString stringWithFormat:@"WARNING: CordovaLocalWebServer: <content> tag src is not http://localhost[:port] (is %@).", vc.startPage];
-            NSLog(@"%@", error);
+        self.server = [[GCDWebServer alloc] init];
+        [GCDWebServer setLogLevel:kGCDWebServerLoggingLevel_Error];
 
+        if (useLocalWebServer) {
+            [self addAppFileSystemHandler:authToken basePath:[NSString stringWithFormat:@"/%@/", appBasePath] indexPage:indexPage];
+
+            // add after server is started to get the true port
+            [self addFileSystemHandlers:authToken];
             [self addErrorSystemHandler:authToken];
+
+            //WaveLens changes
+            NSArray* paths = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
+                                                                  
+            [self.server addGETHandlerForPath:@"/assets-library/appIndex.html" filePath:[paths[0] stringByAppendingString: @"/appIndex.html" ] isAttachment:false cacheAge:0 allowRangeRequests:true];
+            
             
             // handlers must be added before server starts
             [self.server startWithPort:port bonjourName:nil];
 
-            vc.startPage = [self createErrorUrl:error authToken:authToken];
+            // Update the startPage (supported in cordova-ios 3.7.0, see https://issues.apache.org/jira/browse/CB-7857)
+            vc.startPage = [NSString stringWithFormat:@"http://localhost:%lu/%@/%@?%@", (unsigned long)self.server.port, appBasePath, indexPage, authToken];
+
         } else {
-            GWS_LOG_ERROR(@"%@ stopped, failed requirements check.", [self.server class]);
+            if (requirementsOK) {
+                NSString* error = [NSString stringWithFormat:@"WARNING: CordovaLocalWebServer: <content> tag src is not http://localhost[:port] (is %@).", vc.startPage];
+                NSLog(@"%@", error);
+
+                [self addErrorSystemHandler:authToken];
+                
+                // handlers must be added before server starts
+                [self.server startWithPort:port bonjourName:nil];
+
+                vc.startPage = [self createErrorUrl:error authToken:authToken];
+            } else {
+                GWS_LOG_ERROR(@"%@ stopped, failed requirements check.", [self.server class]);
+            }
         }
+    } else {
+        NSLog(@"[INFO] %@: Webserver workaround not needed!", [self class]);
     }
 }
 
