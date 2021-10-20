@@ -49,7 +49,7 @@
     NSString* appBasePath = @"www";
     NSUInteger port = 80;
     
-    if (SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(@"15.0") && SYSTEM_VERSION_LESS_THAN(@"15.1")) {
+    if (SYSTEM_VERSION_LESS_THAN(@"15.1")) {
         NSLog(@"[INFO] %@: Webserver workaround required!", [self class]);
         // check the content tag src
         CDVViewController* vc = (CDVViewController*)self.viewController;
@@ -87,7 +87,7 @@
         NSString* authToken = [NSString stringWithFormat:@"cdvToken=%@", [[NSProcessInfo processInfo] globallyUniqueString]];
 
         self.server = [[GCDWebServer alloc] init];
-        [GCDWebServer setLogLevel:kGCDWebServerLoggingLevel_Error];
+        [GCDWebServer setLogLevel:kGCDWebServerLoggingLevel_Verbose];
 
         if (useLocalWebServer) {
             [self addAppFileSystemHandler:authToken basePath:[NSString stringWithFormat:@"/%@/", appBasePath] indexPage:indexPage];
