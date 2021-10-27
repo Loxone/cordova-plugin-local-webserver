@@ -84,7 +84,7 @@
             port = [self _availablePort];
         }
 
-        NSString* authToken = [NSString stringWithFormat:@"cdvToken=%@", [[NSProcessInfo processInfo] globallyUniqueString]];
+        NSString* authToken = [NSString stringWithFormat:@"cdvToken=%@", @"Loxone"];
 
         self.server = [[GCDWebServer alloc] init];
         [GCDWebServer setLogLevel:kGCDWebServerLoggingLevel_Verbose];
