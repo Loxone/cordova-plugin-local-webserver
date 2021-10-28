@@ -84,7 +84,7 @@
             port = [self _availablePort];
         }
 
-        NSString* authToken = [NSString stringWithFormat:@"cdvToken=%@", @"Loxone"];
+        NSString* authToken = [NSString stringWithFormat:@"cdvToken=%@", [[NSProcessInfo processInfo] globallyUniqueString]];
 
         self.server = [[GCDWebServer alloc] init];
         [GCDWebServer setLogLevel:kGCDWebServerLoggingLevel_Verbose];
@@ -112,6 +112,7 @@
             if (requirementsOK) {
                 NSString* error = [NSString stringWithFormat:@"WARNING: CordovaLocalWebServer: <content> tag src is not http://localhost[:port] (is %@).", vc.startPage];
                 NSLog(@"%@", error);
+                GWS_LOG_INFO(@"%@", error);
 
                 [self addErrorSystemHandler:authToken];
                 
@@ -121,6 +122,10 @@
                 vc.startPage = [self createErrorUrl:error authToken:authToken];
             } else {
                 GWS_LOG_ERROR(@"%@ stopped, failed requirements check.", [self.server class]);
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    UIAlertController *ac = [UIAlertController alertControllerWithTitle:@"ERROR" message:[NSString stringWithFormat:@"%@ stopped, failed requirements check.", [self.server class]] preferredStyle:UIAlertControllerStyleAlert];
+                    [vc presentViewController:ac animated:true completion:nil];
+                });
             }
         }
     } else {
@@ -231,25 +236,11 @@
             return;
         }
 
-        //check if the querystring or the cookie has the token
-        BOOL hasToken = (request.URL.query && [request.URL.query containsString:authToken]);
-        NSString *cookie = [request.headers objectForKey:@"Cookie"];
-        BOOL hasCookie = (cookie && [cookie containsString:authToken]);
-        if (!hasToken && !hasCookie) {
-            complete([GCDWebServerErrorResponse responseWithClientError:kGCDWebServerHTTPStatusCode_Forbidden message:@"FORBIDDEN"]);
-            return;
-        }
-
         processRequestForResponseBlock(request, ^void(GCDWebServerResponse* response){
             if (response) {
                 response.cacheControlMaxAge = cacheAge;
             } else {
                 response = [GCDWebServerResponse responseWithStatusCode:kGCDWebServerHTTPStatusCode_NotFound];
-            }
-
-            if (hasToken && !hasCookie) {
-                //set cookie
-                [response setValue:[NSString stringWithFormat:@"%@;path=/", authToken] forAdditionalHeader:@"Set-Cookie"];
             }
             complete(response);
         });
@@ -263,7 +254,6 @@
     BOOL allowRangeRequests = YES;
 
     NSString* directoryPath = [[self.commandDelegate pathForResource:indexPage] stringByDeletingLastPathComponent];
-;
 
     GCDWebServerAsyncProcessBlock processRequestBlock = ^void (GCDWebServerRequest* request, GCDWebServerCompletionBlock complete) {
 
